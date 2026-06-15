@@ -2,3 +2,5 @@ tokenizers
 transformers
 datasets
 wandb
+accelerate
+torch
