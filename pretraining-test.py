@@ -21,6 +21,7 @@ from transformers import (
     set_seed,
     Trainer,
     TrainingArguments,
+    TrainerCallback,
     DataCollatorForLanguageModeling,
     LlamaForCausalLM,
     LlamaConfig)
@@ -133,9 +134,9 @@ tokenized_datasets = synthetic_data.map(tokenize,
 
 config = LlamaConfig(
     vocab_size=len(tokenizer),
-    hidden_size=512,
+    hidden_size=256,
     num_hidden_layers=8,
-    intermediate_size=512,
+    intermediate_size=256,
     num_attention_heads=8,
     bos_token_id=tokenizer.convert_tokens_to_ids("<|endoftext|>"),
     eos_token_id=tokenizer.convert_tokens_to_ids("<|endoftext|>"),
@@ -159,13 +160,13 @@ data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
 training_args = TrainingArguments(
     output_dir=model_path,
     #overwrite_output_dir=True,
-    save_strategy = "epoch", # saves after every epoch
-    #save_strategy = "steps",
-    #save_steps = 0.1, # if below zero, then saves after every (n*100)% of training steps
+    #save_strategy = "epoch", # saves after every epoch
+    save_strategy = "steps",
+    save_steps = 0.1, # if below zero, then saves after every (n*100)% of training steps
     #save_total_limit=100,  # set to zero to avoid saving
     eval_strategy = "epoch",
     #eval_steps = 0.1,
-    num_train_epochs= 10,
+    num_train_epochs= 2,
     #max_steps = 1,
     gradient_accumulation_steps=8,
     per_device_train_batch_size=16,
@@ -187,6 +188,18 @@ training_args = TrainingArguments(
     hub_token = hf_token
 )
 
+# Custom saving logic (just edit the `steps` list):
+class CustomCheckpoints(TrainerCallback):
+    def __init__(self, save_steps):
+        self.save_steps = set(save_steps)
+
+    def on_step_end(self, args, state, control, **kwargs):
+        if state.global_step in self.save_steps:
+            control.should_save = True
+        return control
+
+steps = [0, 1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
+
 # Initialize trainer object:
 
 trainer = Trainer(
@@ -195,7 +208,8 @@ trainer = Trainer(
     args=training_args,
     data_collator=data_collator,
     train_dataset=tokenized_datasets['train'],
-    eval_dataset=tokenized_datasets['test']
+    eval_dataset=tokenized_datasets['test'],
+    callbacks=[LogSpacedCheckpoints(steps)]
 )
 
 # Train:
