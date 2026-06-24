@@ -209,7 +209,7 @@ trainer = Trainer(
     data_collator=data_collator,
     train_dataset=tokenized_datasets['train'],
     eval_dataset=tokenized_datasets['test'],
-    callbacks=[LogSpacedCheckpoints(steps)]
+    callbacks=[CustomCheckpoints(steps)]
 )
 
 # Train:
